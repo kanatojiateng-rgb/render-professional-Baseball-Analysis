@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>プロ野球選手データ分析スマホ版</title>
+</head>
+<body>
+<!-- 画面右上の使い方案内（ここから） -->
+<details style="margin: 15px auto; max-width: 90%; background: #ffffff; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+  <summary style="padding: 14px 18px; font-size: 18px; font-weight: bold; color: #222; cursor: pointer; background: #f8f9fa; border-radius: 8px; user-select: none;">
+    📊 本アプリの使用説明（タップで開閉）
+  </summary>
+  <div style="padding: 16px 20px; font-size: 16px; line-height: 1.5; border-top: 1px solid #eee;">
+    <ol style="margin: 0; padding-left: 20px; color: #333;">
+      <li style="margin-bottom: 12px;">
+        <strong>データタイプを選択</strong><br>
+        <span style="font-size: 14px; color: #555;">「打者」または「投手」を選びます。</span>
+      </li>
+      <li style="margin-bottom: 12px;">
+        <strong>対象の年度を指定</strong><br>
+        <span style="font-size: 14px; color: #555;">開始年度と終了年度を選びます。</span>
+      </li>
+      <li style="margin-bottom: 12px;">
+        <strong>チーム・選手・分析項目を選択</strong><br>
+        <span style="font-size: 13px; color: #555;">複数選択OK！項目をタップして選択できます。（※分析項目は2つまで選択可能）</span>
+      </li>
+      <li style="margin-bottom: 0;">
+        <strong>「分析を実行する」をタップ</strong><br>
+        <span style="font-size: 13px; color: #555;">自動でわかりやすい複合グラフが可視化されます。</span>
+      </li>
+    </ol>
+  </div>
+</details>
+<!-- 画面右上の使い方案内（ここまで） -->
+
+<h1>Professional Baseball Analysis</h1>
+
+<div class="main-container">
+  <h2>データの登録と分析</h2>
+
+  <div class="box">
+    <form action="/analyze" method="POST">
+
+      <!-- ★ラジオボタンの構造を整理 -->
+      <div class="form-group">
+        <p class="label-title">データタイプ:</p>
+        <div class="radio-group">
+          <label class="radio-label">
+            <input type="radio" name="player_type_toggle" value="batter" checked> 打者
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="player_type_toggle" value="pitcher"> 投手
+          </label>
+        </div>
+      </div>
+      <input type="hidden" id="active-player-type" name="player_type" value="batter">
+      
+      <p class="label-title">年度:
+        <select name="start_year">
+          {% for year in years %}
+            <option value="{{ year }}">{{ year }}年</option>
+          {% endfor %}
+        </select>
+      </p>
+
+      <p class="label-title">終了年度:
+        <select name="end_year">
+          {% for year in years %}
+            <option value="{{ year }}">{{ year }}年</option>
+          {% endfor %}
+        </select> 
+      </p>
+
+      <p class="label-title">チーム名:
+        <select id="teamSelector1" name="team_ids" multiple size="6">
+          <option value="">チームを選択</option>
+          <option value="hanshin">阪神タイガース</option>
+          <option value="giants">読売ジャイアンツ</option>
+          <option value="yakult">東京ヤクルトスワローズ</option>
+          <option value="chunichi">中日ドラゴンズ</option>
+          <option value="carp">広島東洋カープ</option>
+          <option value="dena">横浜DeNAベイスターズ</option> 
+          <option value="hawks">福岡ソフトバンクホークス</option>
+          <option value="lions">埼玉西武ライオンズ</option>
+          <option value="marines">千葉ロッテマリーンズ</option>
+          <option value="eagles">東北楽天ゴールデンイーグルス</option>
+          <option value="fighters">北海道日本ハムファイターズ</option>
+          <option value="buffaloes">オリックスバファローズ</option>
+        </select>
+      </p>
+
+      <p class="label-title">選手（複数選択可）:
+        <select id="player-select" name="players" multiple>
+          <option value="">先にチームを選択してください</option>
+        </select>
+      </p>
+
+      <p class="label-title">分析項目 （複数選択可）:
+        <select id="analysisItems" name="items" multiple>
+          {% for item in items %}
+            <option value="{{ item }}">{{ item }}</option>
+          {% endfor %}
+        </select>
+      </p>
+
+      <p>
+        <button type="submit" class="submit-btn">分析を実行する</button>
+      </p>
+    </form>
+  </div>
+</div>
+
+<footer class="footer-credit">
+  <p>データ引用元：<a href="https://npb.jp/bis/2024/stats/idp1_g.html" target="_blank" rel="noopener noreferrer">一般社団法人日本野球機構 (NPB) オフィシャルサイト</a></p>
+</footer>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: bisque;
+  margin: 0;
+  padding: 15px;
+}
+
+.main-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  gap: 0;
+}
+
+h1 {
+  color: red;
+  text-align: center;
+  font-size: 28px;
+  margin: 15px 0 10px 0;
+}
+
+h2 {
+  margin-top: 25px;
+  color: blue;
+  font-size: 22px;
+  text-align: center;
+}
+
+.box {
+  margin-top: 20px;
+  font-size: 18px;
+  text-align: center;
+  width: 100%;
+}
+
+.box p.label-title {
+  color: plum;
+  margin: 15px 0 5px 0;
+  font-weight: bold;
+}
+
+/* ★ラジオボタンエリアの専用スタイル */
+.form-group {
+  margin-bottom: 15px;
+}
+
+.radio-group {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 25px; /* 打者と投手の距離 */
+  margin-top: 5px;
+}
+
+.radio-label {
+  color: #333;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px; /* ボタンと文字（打者・投手）の距離を縮める */
+  cursor: pointer;
+}
+
+/* ラジオボタン自体の幅固定（width: 100%を防止） */
+.radio-label input[type="radio"] {
+  width: 20px !important;
+  height: 20px;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* ★セレクトボックスなどの幅調整 */
+select {
+  font-size: 16px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  width: 100%;
+  max-width: 300px;
+  margin: 5px auto;
+  display: block;
+}
+
+/* ボタン */
+.submit-btn {
+  font-size: 18px;
+  margin: 25px auto 0 auto;
+  background-color: green;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  cursor: pointer;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 250px;
+  display: block;
+}
+
+.submit-btn:hover {
+  background-color: #006400;
+}
+
+/* フッター */
+.footer-credit {
+  margin-top: 40px;
+  margin-bottom: 20px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.footer-credit a {
+  color: #333;
+  text-decoration: underline;
+}
+</style>
+</body>
+</html>
