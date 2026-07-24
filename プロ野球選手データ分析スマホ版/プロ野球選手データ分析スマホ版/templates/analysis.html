@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>分析結果</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="chart-container">
+  <h1>分析結果</h1>
+   <canvas id="myChart"></canvas>
+</div>
+</body>
+
+<style>
+
+* {
+  box-sizing: border-box;
+}
+
+h1 {
+  color: blue;
+  text-align: center;
+  font-size: 30px;
+  margin-top: 0;
+  margin-bottom: 50px;
+}
+
+body {
+  background-color: #e0ffff;
+  margin: 0;
+  padding: 15px; 
+  font-family: sans-serif;
+}
+
+canvas {
+     width: 100% !important;
+     height: 400px !important;
+     max-width: 800px;
+     max-height: 60vh;
+}
+
+.chart-container {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  width: 100%;
+}
+  
+</style>
+
+<script>
+ // ここでPythonのデータをJSの変数に変換して渡す（これだけはHTML側に書く）
+ const chartLabels = {{ labels | safe }};
+ const chartDatasets = {{ datasets | safe }}; // 複数データセット
+ const selectedItems = {{ items_json | safe }};
+</script>
+
+<script src="{{ url_for('static', filename='analysis_chart.js') }}"></script>
+</html>
