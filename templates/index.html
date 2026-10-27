@@ -37,7 +37,6 @@
 <h1>Professional Baseball Analysis</h1>
 
 <div class="main-container">
-  <h2>データの登録と分析</h2>
 
   <div class="box">
     <form action="/analyze" method="POST">
@@ -72,7 +71,7 @@
         </select> 
       </p>
 
-      <p class="label-title">チーム名 (複数選択可）:
+      <p class="label-title">チーム名:
         <select id="teamSelector1" name="team_ids" multiple size="6">
           <option value="">チームを選択</option>
           <option value="hanshin">阪神タイガース</option>
@@ -142,14 +141,7 @@ h1 {
   color: red;
   text-align: center;
   font-size: 28px;
-  margin: 15px 0 10px 0;
-}
-
-h2 {
-  margin-top: 25px;
-  color: blue;
-  font-size: 22px;
-  text-align: center;
+  margin: 15px 0 10px;
 }
 
 .box {
