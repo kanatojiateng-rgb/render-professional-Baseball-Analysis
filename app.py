@@ -35,76 +35,170 @@ def index():
     year_list = sorted(df['年度'].dropna().unique().tolist())
     return render_template('index.html', items=analysis_items, years=year_list)
 
+
 @app.route('/get_players', methods=['GET'])
 def get_players():
     team_ids = request.args.getlist('team_ids')
     start_year = int(request.args.get('start_year', 2005))
     end_year = int(request.args.get('end_year', 2026))
     player_type = request.args.get('player_type', 'batter')
-    
-    if not team_ids:    
+
+    if not team_ids:
         return jsonify([])
-          
+
     try:
         csv_file = get_csv_by_type(player_type)
         df = pd.read_csv(csv_file, encoding='UTF-8')
 
-
+        # チーム名の表記を統一
         for col in df.columns:
             if 'チーム' in col:
-                df[col] = df[col].astype(str).str.strip().str.replace('*', '', regex=False)
-        
-        # '年度' 列を数値型に統一
+                df[col] = (
+                    df[col].astype(str).str.strip()
+                    .str.replace('*', '', regex=False)
+                )
+
         df['年度'] = pd.to_numeric(df['年度'], errors='coerce')
 
-        team_col_list = [col for col in df.columns if 'チーム' in col]
+        team_col_list = [
+            col for col in df.columns if 'チーム' in col
+        ]
         if not team_col_list:
             print("エラー: CSVに 'チーム' を含む列が見つかりません")
             return jsonify([])
+
         team_col = team_col_list[0]
-        
-        #CSVの列名に '投手' があれば '投手' を、なければ '選手' を使う（どちらもなければ1番目の列）
+
         if '投　手' in df.columns:
             player_col = '投　手'
         elif '選手' in df.columns:
             player_col = '選手'
         elif '選手名' in df.columns:
-            player_col = '選手名'   
+            player_col = '選手名'
         else:
-            # 1枚目のExcel画像をベースに、C列（インデックス2）を強制指定する安全策
             player_col = df.columns[2]
-        
+
         players_with_teams = []
 
-        #  チームごとにループを回し、チーム名と選手リストのペアを辞書形式で作る
+        # 投手CSVから、投手名を取得（打者一覧の並べ替え用）
+        pitcher_names_by_team = {}
+
+        if player_type == 'batter':
+            pitcher_df = pd.read_csv(
+                'pitcher_data.csv', encoding='UTF-8'
+            )
+
+            pitcher_df['年度'] = pd.to_numeric(
+                pitcher_df['年度'], errors='coerce'
+            )
+
+            for col in pitcher_df.columns:
+                if 'チーム' in col:
+                    pitcher_df[col] = (
+                        pitcher_df[col].astype(str).str.strip()
+                        .str.replace('*', '', regex=False)
+                    )
+
+            pitcher_team_cols = [
+                col for col in pitcher_df.columns
+                if 'チーム' in col
+            ]
+
+            if (
+                pitcher_team_cols
+                and '投　手' in pitcher_df.columns
+            ):
+                pitcher_team_col = pitcher_team_cols[0]
+
+                for team_id in team_ids:
+                    team_names = TEAM_MAP.get(team_id, [])
+                    if not team_names:
+                        continue
+
+                    normalized_team_names = [
+                        name.replace('*', '') for name in team_names
+                    ]
+
+                    p_df = pitcher_df[
+                        pitcher_df[pitcher_team_col].isin(
+                            normalized_team_names
+                        )
+                        & (pitcher_df['年度'] >= start_year)
+                        & (pitcher_df['年度'] <= end_year)
+                    ]
+
+                    pitcher_names_by_team[team_id] = set(
+                        p_df['投　手']
+                        .dropna()
+                        .astype(str)
+                        .str.strip()
+                    )
+
+        # チームごとに選手一覧を作る
         for team_id in team_ids:
             team_names = TEAM_MAP.get(team_id, [])
             if not team_names:
                 continue
-            
-            # そのチームの該当年度のデータのみを抽出
-            team_df = df[
-                (df[team_col].astype(str).isin(team_names)) &
-                (df['年度'] >= start_year) &
-                (df['年度'] <= end_year)
+
+            normalized_team_names = [
+                name.replace('*', '') for name in team_names
             ]
-            
-            
-            raw_players = team_df[player_col].dropna().astype(str).str.strip().unique().tolist()
-            filtered_players = [p for p in raw_players if p not in ['', '*', '+', '選手', '選手名', 'nan', '年度','投手']]
-            
-            # 選手が存在する場合のみ、チームごとにまとめてリストに追加
+
+            team_df = df[
+                df[team_col].isin(normalized_team_names)
+                & (df['年度'] >= start_year)
+                & (df['年度'] <= end_year)
+            ]
+
+            raw_players = (
+                team_df[player_col]
+                .dropna()
+                .astype(str)
+                .str.strip()
+                .unique()
+                .tolist()
+            )
+
+            filtered_players = [
+                p for p in raw_players
+                if p not in [
+                    '', '*', '+', '選手', '選手名',
+                    'nan', '年度', '投手'
+                ]
+            ]
+
+            # 打者一覧の場合、投手を最後にまとめる
+            if player_type == 'batter':
+                pitcher_names = pitcher_names_by_team.get(
+                    team_id, set()
+                )
+
+                filtered_players = (
+                    [
+                        p for p in filtered_players
+                        if p not in pitcher_names
+                    ]
+                    + [
+                        p for p in filtered_players
+                        if p in pitcher_names
+                    ]
+                )
+
             if filtered_players:
                 players_with_teams.append({
                     'team_name': team_names[0],
                     'player_list': filtered_players
                 })
-        print(f"DEBUG: 抽出されたチーム数: {len(players_with_teams)}")
-        return jsonify(players_with_teams)  # グループ化されたデータを返す
-    
+
+        print(
+            f"DEBUG: 抽出されたチーム数: {len(players_with_teams)}"
+        )
+        return jsonify(players_with_teams)
+
     except Exception as e:
         print(f"エラー発生: {e}")
         return jsonify([])
+
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
