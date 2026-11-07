@@ -48,22 +48,40 @@ document.addEventListener('DOMContentLoaded', () => {
     fetch(`/get_players?${params.toString()}`)
     .then(response => response.json())
     .then(playersGroupList => {
-        playerSelect.innerHTML = '<option value="">選手を選択</option>';
+        playerSelect.innerHTML = '';
+
+        // 選択チームが1つだけの場合
+        if (playersGroupList.length === 1) {
+
+            playersGroupList[0].player_list.forEach(player => {
+                const option = document.createElement('option');
+                option.value = player;
+                option.textContent = player;
+                playerSelect.appendChild(option);
+            });
+        } else {
+
+        
             
         //  チームごとにグループ分けして選択肢を組み立てる
         playersGroupList.forEach(group => {
-            let optGroup = document.createElement('optgroup');
-            optGroup.label = group.team_name; // チーム名をグループの見出しにする
-                
+
+            // optgroupを作成
+            const optGroup = document.createElement('optgroup');
+            optGroup.label = group.team_name;
+
             group.player_list.forEach(player => {
                 let option = document.createElement('option');
+                
                 option.value = player;
                 option.textContent = player;
+
                 optGroup.appendChild(option);
             });
                 
             playerSelect.appendChild(optGroup);    
         });
+      } 
     })
     .catch(error => {
         console.error('Error:', error);
