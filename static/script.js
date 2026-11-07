@@ -7,6 +7,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const analysisItemsSelect = document.getElementById('analysisItems');
 
+    const analyzeButton = document.getElementById('analyzeButton');
+
+    function validateForm() {
+
+    if (!analyzeButton) return;
+
+    const hasTeam =
+        teamSelector.selectedOptions.length > 0;
+
+    const hasPlayer =
+        playerSelect.selectedOptions.length > 0;
+
+    const hasItem =
+        analysisItemsSelect.selectedOptions.length > 0;
+
+    analyzeButton.disabled =
+        !(hasTeam && hasPlayer && hasItem);
+}
     // 選手一覧を更新する関数
     function updatePlayers(event) {
         const startYear = document.querySelector('select[name="start_year"]').value;
@@ -82,6 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
             playerSelect.appendChild(optGroup);    
         });
       } 
+      validateForm();
     })
     .catch(error => {
         console.error('Error:', error);
@@ -112,6 +131,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (teamSelector) {
         teamSelector.addEventListener('change', updatePlayers);
     }
+
+    playerSelect.addEventListener('change', validateForm);
+
+    analysisItemsSelect.addEventListener('change', () => {
+
+        if (analysisItemsSelect.selectedOptions.length > 2) {
+            
+            alert('分析項目は２つまで選択できます');
+
+            const selectedOptions =
+                Array.from(analysisItemsSelect.selectedOptions);
+
+            selectedOptions[selectedOptions.length - 1].selected = false;
+        
+    } 
+    validateForm();
+    });
+    
     const startYearSelect = document.querySelector('select[name="start_year"]');
     const endYearSelect = document.querySelector('select[name="end_year"]');
     
@@ -127,5 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 2. 分析項目を更新
             updateAnalysisItems(newType);
         });
+
+        validateForm();
     });
 });
