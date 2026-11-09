@@ -1,250 +1,346 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>プロ野球選手データ分析スマホ版</title>
-</head>
-<body>
-<!-- 画面右上の使い方案内（ここから） -->
-<details style="margin: 15px auto; max-width: 90%; background: #ffffff; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
-  <summary style="padding: 14px 18px; font-size: 18px; font-weight: bold; color: #222; cursor: pointer; background: #f8f9fa; border-radius: 8px; user-select: none;">
-    📊 本アプリの使用説明（タップで開閉）
-  </summary>
-  <div style="padding: 16px 20px; font-size: 16px; line-height: 1.5; border-top: 1px solid #eee;">
-    <ol style="margin: 0; padding-left: 20px; color: #333;">
-      <li style="margin-bottom: 12px;">
-        <strong>データタイプを選択</strong><br>
-        <span style="font-size: 14px; color: #555;">「打者」または「投手」を選びます。</span>
-      </li>
-      <li style="margin-bottom: 12px;">
-        <strong>対象の年度を指定</strong><br>
-        <span style="font-size: 14px; color: #555;">開始年度と終了年度を選びます。</span>
-      </li>
-      <li style="margin-bottom: 12px;">
-        <strong>チーム・選手・分析項目を選択</strong><br>
-        <span style="font-size: 13px; color: #555;">複数選択OK！項目をタップして選択できます。（※分析項目は2つまで選択可能）</span>
-      </li>
-      <li style="margin-bottom: 0;">
-        <strong>「分析を実行する」をタップ</strong><br>
-        <span style="font-size: 13px; color: #555;">自動でわかりやすい複合グラフが可視化されます。</span>
-      </li>
-    </ol>
+from flask import Flask, render_template, request, jsonify
+import pandas as pd
+import json
 
-    <div style="margin-top: 20px; padding-top: 14px; border-top: 1px solid #eee;">
-      <strong style="font-size: 16px; color: #333;"> 本アプリで出来ること（例）</strong>
+app = Flask(__name__)
 
-    <div style="margin-top: 12px; margin-bottom: 12px;">
-      <strong style="font-size: 14px; color:#333;">① 投手の登板数と勝利数の相関可視化</strong><br>
-      <span style="font-size: 13px; color: #555;">二人の投手の登板数と勝利数を比較し、それぞれの関係性を確認できます。</span>
-    </div>
-
-  <div>
-        <strong style="font-size: 14px; color: #333;">② 打者の安打数の推移可視化</strong><br>
-        <span style="font-size: 13px; color: #555;">1人の打者を対象に、年度ごとの安打数の推移を確認できます。</span>
-      </div>
-      
-    </div> 
-    </div>
-  </div>
-</details>
-<!-- 画面右上の使い方案内（ここまで） -->
-
-<h1>Professional Baseball Visualization</h1>
-
-<div class="main-container">
-
-  <div class="box">
-    <form action="/analyze" method="POST">
-
-      <!-- ★ラジオボタンの構造を整理 -->
-      <div class="form-group">
-        <p class="label-title">データタイプ:</p>
-        <div class="radio-group">
-          <label class="radio-label">
-            <input type="radio" name="player_type_toggle" value="batter" checked> 打者
-          </label>
-          <label class="radio-label">
-            <input type="radio" name="player_type_toggle" value="pitcher"> 投手
-          </label>
-        </div>
-      </div>
-      <input type="hidden" id="active-player-type" name="player_type" value="batter">
-      
-      <p class="label-title">年度:
-        <select name="start_year">
-          {% for year in years %}
-            <option value="{{ year }}">{{ year }}年</option>
-          {% endfor %}
-        </select>
-      </p>
-
-      <p class="label-title">終了年度:
-        <select name="end_year">
-          {% for year in years %}
-            <option value="{{ year }}">{{ year }}年</option>
-          {% endfor %}
-        </select> 
-      </p>
-
-      <p class="label-title">チーム名:
-        <select id="teamSelector1" name="team_ids" multiple size="6">
-          <option value="hanshin">阪神タイガース</option>
-          <option value="giants">読売ジャイアンツ</option>
-          <option value="yakult">東京ヤクルトスワローズ</option>
-          <option value="chunichi">中日ドラゴンズ</option>
-          <option value="carp">広島東洋カープ</option>
-          <option value="dena">横浜DeNAベイスターズ</option> 
-          <option value="hawks">福岡ソフトバンクホークス</option>
-          <option value="lions">埼玉西武ライオンズ</option>
-          <option value="marines">千葉ロッテマリーンズ</option>
-          <option value="eagles">東北楽天ゴールデンイーグルス</option>
-          <option value="fighters">北海道日本ハムファイターズ</option>
-          <option value="buffaloes">オリックスバファローズ</option>
-        </select>
-      </p>
-
-      <p class="label-title">選手（複数選択可）:
-        <select id="player-select" name="players" multiple>
-          <option value="">先にチームを選択してください</option>
-        </select>
-      </p>
-
-      <p class="label-title">分析項目 （複数選択可）:
-        <select id="analysisItems" name="items" multiple>
-          {% for item in items %}
-            <option value="{{ item }}">{{ item }}</option>
-          {% endfor %}
-        </select>
-      </p>
-
-      <p>
-        <button type="submit" class="submit-btn">分析を実行する</button>
-      </p>
-    </form>
-  </div>
-</div>
-
-<footer class="footer-credit">
-  <p>データ引用元：<a href="https://npb.jp/bis/2024/stats/idp1_g.html" target="_blank" rel="noopener noreferrer">一般社団法人日本野球機構 (NPB) オフィシャルサイト</a></p>
-</footer>
-
-<script src="{{ url_for('static', filename='script.js') }}"></script>
-
-<style>
-* {
-  box-sizing: border-box;
+TEAM_MAP = { 
+    "hanshin": ["阪神タイガース", "阪神タイガース*"],
+    "giants": ["読売ジャイアンツ", "読売ジャイ*" ],
+    "yakult": ["東京ヤクルトスワローズ",  "東京ヤクルト*"],
+    "carp": ["広島東洋カープ", "広島東洋カープ*" ],
+    "dena": ["横浜DeNAベイスターズ", "横浜ベイスターズ",  "横浜ベイスターズ*"],
+    "chunichi": ["中日ドラゴンズ",  "中日ドラゴンズ*"],
+    "hawks": ["福岡ソフトバンクホークス","福岡ソフトバンク*"],
+    "fighters": ["北海道日本ハムファイターズ"],
+    "marines": ["千葉ロッテマリーンズ",  "千葉ロッテ*"],
+    "lions": ["埼玉西武ライオンズ",  "埼玉西武*"],
+    "eagles": ["東北楽天ゴールデンイーグルス",  "東北楽天*"],
+    "buffaloes": ["オリックスバファローズ", "オリックス*"]
 }
 
-body {
-  background-color: bisque;
-  margin: 0;
-  padding: 15px;
-}
+# タイプによって読み込むCSVを判定するヘルパー関数
+def get_csv_by_type(player_type):
+    if player_type == 'pitcher':
+        return 'pitcher_data.csv'
+    return 'batter_data.csv' # デフォルトは打者
 
-.main-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  max-width: 600px;
-  margin: 0 auto;
-  gap: 0;
-}
+@app.route('/')
+def index():
+    csv_file = get_csv_by_type('batter')
+    df = pd.read_csv(csv_file, encoding='UTF-8')
 
-h1 {
-  color: red;
-  text-align: center;
-  font-size: 28px;
-  margin: 15px 0 10px;
-}
+    exclude_columns = ['年度', 'チーム', '選手', '選手名', '投　手', 'Unnamed: 2', 'Unnamed: 16'] 
+    analysis_items = [col for col in df.columns.tolist() if col not in exclude_columns]
+    year_list = sorted(df['年度'].dropna().unique().tolist())
+    return render_template('index.html', items=analysis_items, years=year_list)
 
-.box {
-  margin-top: 20px;
-  font-size: 18px;
-  text-align: center;
-  width: 100%;
-}
 
-.box p.label-title {
-  color: plum;
-  margin: 15px 0 5px 0;
-  font-weight: bold;
-}
+@app.route('/get_players', methods=['GET'])
+def get_players():
+    team_ids = request.args.getlist('team_ids')
+    start_year = int(request.args.get('start_year', 2005))
+    end_year = int(request.args.get('end_year', 2026))
+    player_type = request.args.get('player_type', 'batter')
 
-/* ★ラジオボタンエリアの専用スタイル */
-.form-group {
-  margin-bottom: 15px;
-}
+    if not team_ids:
+        return jsonify([])
 
-.radio-group {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 25px; /* 打者と投手の距離 */
-  margin-top: 5px;
-}
+    try:
+        csv_file = get_csv_by_type(player_type)
+        df = pd.read_csv(csv_file, encoding='UTF-8')
 
-.radio-label {
-  color: #333;
-  font-size: 20px;
-  display: flex;
-  align-items: center;
-  gap: 6px; /* ボタンと文字（打者・投手）の距離を縮める */
-  cursor: pointer;
-}
+        # チーム名の表記を統一
+        for col in df.columns:
+            if 'チーム' in col:
+                df[col] = (
+                    df[col].astype(str).str.strip()
+                    .str.replace('*', '', regex=False)
+                )
 
-/* ラジオボタン自体の幅固定（width: 100%を防止） */
-.radio-label input[type="radio"] {
-  width: 20px !important;
-  height: 20px;
-  margin: 0;
-  cursor: pointer;
-}
+        df['年度'] = pd.to_numeric(df['年度'], errors='coerce')
 
-/* ★セレクトボックスなどの幅調整 */
-select {
-  font-size: 16px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  width: 100%;
-  max-width: 300px;
-  margin: 5px auto;
-  display: block;
-}
+        team_col_list = [
+            col for col in df.columns if 'チーム' in col
+        ]
+        if not team_col_list:
+            print("エラー: CSVに 'チーム' を含む列が見つかりません")
+            return jsonify([])
 
-/* ボタン */
-.submit-btn {
-  font-size: 18px;
-  margin: 25px auto 0 auto;
-  background-color: green;
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  cursor: pointer;
-  border-radius: 8px;
-  width: 100%;
-  max-width: 250px;
-  display: block;
-}
+        team_col = team_col_list[0]
 
-.submit-btn:hover {
-  background-color: #006400;
-}
+        if '投　手' in df.columns:
+            player_col = '投　手'
+        elif '選手' in df.columns:
+            player_col = '選手'
+        elif '選手名' in df.columns:
+            player_col = '選手名'
+        else:
+            player_col = df.columns[2]
 
-/* フッター */
-.footer-credit {
-  margin-top: 40px;
-  margin-bottom: 20px;
-  text-align: center;
-  font-size: 14px;
-}
+        players_with_teams = []
 
-.footer-credit a {
-  color: #333;
-  text-decoration: underline;
-}
-</style>
-</body>
-</html>
+        # 投手CSVから、投手名を取得（打者一覧の並べ替え用）
+        pitcher_names_by_team = {}
+
+        if player_type == 'batter':
+            pitcher_df = pd.read_csv(
+                'pitcher_data.csv', encoding='UTF-8'
+            )
+
+            pitcher_df['年度'] = pd.to_numeric(
+                pitcher_df['年度'], errors='coerce'
+            )
+
+            for col in pitcher_df.columns:
+                if 'チーム' in col:
+                    pitcher_df[col] = (
+                        pitcher_df[col].astype(str).str.strip()
+                        .str.replace('*', '', regex=False)
+                    )
+
+            pitcher_team_cols = [
+                col for col in pitcher_df.columns
+                if 'チーム' in col
+            ]
+
+            if (
+                pitcher_team_cols
+                and '投　手' in pitcher_df.columns
+            ):
+                pitcher_team_col = pitcher_team_cols[0]
+
+                for team_id in team_ids:
+                    team_names = TEAM_MAP.get(team_id, [])
+                    if not team_names:
+                        continue
+
+                    normalized_team_names = [
+                        name.replace('*', '') for name in team_names
+                    ]
+
+                    p_df = pitcher_df[
+                        pitcher_df[pitcher_team_col].isin(
+                            normalized_team_names
+                        )
+                        & (pitcher_df['年度'] >= start_year)
+                        & (pitcher_df['年度'] <= end_year)
+                    ]
+
+                    pitcher_names_by_team[team_id] = set(
+                        p_df['投　手']
+                        .dropna()
+                        .astype(str)
+                        .str.strip()
+                    )
+
+        # チームごとに選手一覧を作る
+        for team_id in team_ids:
+            team_names = TEAM_MAP.get(team_id, [])
+            if not team_names:
+                continue
+
+            normalized_team_names = [
+                name.replace('*', '') for name in team_names
+            ]
+
+            team_df = df[
+                df[team_col].isin(normalized_team_names)
+                & (df['年度'] >= start_year)
+                & (df['年度'] <= end_year)
+            ]
+
+            raw_players = (
+                team_df[player_col]
+                .dropna()
+                .astype(str)
+                .str.strip()
+                .unique()
+                .tolist()
+            )
+
+            filtered_players = [
+                p for p in raw_players
+                if p not in [
+                    '', '*', '+', '選手', '選手名',
+                    'nan', '年度', '投手', '選手を選択'
+                ]
+                and p not in TEAM_MAP.get(team_id, [])
+            ]
+
+            # 打者一覧の場合、投手を最後にまとめる
+            if player_type == 'batter':
+                pitcher_names = pitcher_names_by_team.get(
+                    team_id, set()
+                )
+
+                filtered_players = (
+                    [
+                        p for p in filtered_players
+                        if p not in pitcher_names
+                    ]
+                    + [
+                        p for p in filtered_players
+                        if p in pitcher_names
+                    ]
+                )
+
+            if filtered_players:
+                players_with_teams.append({
+                    'team_name': team_names[0],
+                    'player_list': filtered_players
+                })
+
+        print(
+            f"DEBUG: 抽出されたチーム数: {len(players_with_teams)}"
+        )
+        return jsonify(players_with_teams)
+
+    except Exception as e:
+        print(f"エラー発生: {e}")
+        return jsonify([])
+
+
+@app.route('/analyze', methods=['POST'])
+def analyze():
+    selected_players = request.form.getlist('players')
+    print("選択された選手:", selected_players)
+    selected_items = request.form.getlist('items')
+    player_type = request.form.get('player_type', 'batter')
+    selected_team_ids = request.form.getlist('team_ids')
+
+    target_team_names = []
+    for t_id in selected_team_ids:
+        target_team_names.extend(TEAM_MAP.get(t_id, []))
+        
+    if len(selected_items) > 2:
+        return "分析項目は２つまで選択してください"
+    
+    start_year = int(request.form.get('start_year', 2005))
+    end_year = int(request.form.get('end_year', 2026))
+
+    if start_year > end_year:
+        return "開始年度は終了年度以下にしてください"
+    
+    csv_file = get_csv_by_type(player_type)
+    df = pd.read_csv(csv_file, encoding='UTF-8')
+    df['年度'] = pd.to_numeric(df['年度'], errors='coerce')
+    
+    if player_type == 'pitcher' and '投球回' in df.columns and 'Unnamed: 2' in df.columns:
+        df['Unnamed: 2'] = pd.to_numeric(df['Unnamed: 2'], errors='coerce').fillna(0)
+        df['投球回'] = pd.to_numeric(df['投球回'], errors='coerce').fillna(0)
+        df['投球回'] = df['投球回'] + df['Unnamed: 2'] * (10 / 3)
+    
+    for col in df.columns:
+        if 'チーム' in col:
+            df[col] = df[col].astype(str).str.strip().str.replace('*', '', regex=False)
+
+    team_col_list = [col for col in df.columns if 'チーム' in col]
+    if not team_col_list:
+        return f"エラー: CSVに 'チーム' 列が見つかりません"
+    team_col = team_col_list[0]
+
+    player_col = '投　手' if player_type == 'pitcher' else '選手'
+
+    # 選択された選手の全データを抽出
+    filtered_df = df[
+       (df[player_col].isin(selected_players)) &
+       (df['年度'] >= start_year) &
+       (df['年度'] <= end_year)  
+    ].sort_values('年度')
+
+    datasets = []
+    all_years = [str(y) for y in range(start_year, end_year + 1)]
+
+    for player in selected_players:
+        this_player_df = filtered_df[filtered_df[player_col] == player]
+
+        if this_player_df.empty:
+            continue
+        
+        # 項目ごとにデータを格納する配列を初期化
+        this_player_data_for_items = {an_item: [] for an_item in selected_items}
+        team_list_data = []
+    
+        # 年度のループ
+        for y_str in all_years:
+            y = int(y_str)
+            year_df = this_player_df[this_player_df['年度'] == y]
+
+            if not year_df.empty:
+                # データがある場合
+                current_team = year_df[team_col].iloc[0]
+                team_list_data.append(str(current_team))
+                
+                
+                for an_item in selected_items:
+                    
+                    # ★【ここを追加】ピッチャーデータで「試合」が指定された場合、「登板」列に読み替える
+                    csv_item = an_item
+                    if player_type == 'pitcher' and an_item == '試合' and '登板' in year_df.columns:
+                        csv_item = '登板'
+
+                    # 数値をすべて計算可能な状態に変換（csv_item を使うように変更）
+                    year_df[csv_item] = year_df[csv_item].astype(str).str.strip().str.replace('---', '0').str.replace('-', '0')
+                    year_df[csv_item] = pd.to_numeric(year_df[csv_item], errors='coerce').fillna(0)
+
+                    # 率系の項目は「平均（mean）」、それ以外のカウント系はすべて「合計（sum）」にする
+                    if an_item in ["打率", "出塁率", "長打率", "OPS", "防御率", "勝率"]:
+                        value = year_df[csv_item].mean()
+                    else:
+                        value = year_df[csv_item].sum()
+                    
+                    this_player_data_for_items[an_item].append(
+                        float(value) if pd.notna(value) else 0.0
+                    )
+                
+            else:
+              
+                team_list_data.append("")
+                for an_item in selected_items:
+                    this_player_data_for_items[an_item].append(0.0)
+
+        # グラフ描画用のデータセットを作成
+        for index, current_item in enumerate(selected_items):
+            chart_type = 'line' if index == 1 else 'bar'
+            
+            datasets.append({
+                'label': f"{player} ({current_item})",
+                'data': this_player_data_for_items[current_item],
+                'teamList': team_list_data, # ★ここでJSにチーム名リストを渡す
+                'item': current_item,
+                'type': chart_type,
+                'fill': False,
+                'tension': 0.1
+            })
+        
+    return render_template('analysis.html',
+                           item=selected_items,
+                           items_json=json.dumps(selected_items, ensure_ascii=False),
+                           labels=json.dumps(all_years),
+                           datasets=json.dumps(datasets))
+
+@app.route('/get_items', methods=['GET'])
+def get_items():
+    player_type = request.args.get('player_type', 'batter')
+    try:
+        # 選択されたタイプのCSVを読み込む
+        csv_file = get_csv_by_type(player_type)
+        df = pd.read_csv(csv_file, encoding='UTF-8')
+        
+        if player_type == 'pitcher' and '投球回' in df.columns and 'Unnamed: 2' in df.columns:
+            df['Unnamed: 2'] = pd.to_numeric(df['Unnamed: 2'], errors='coerce').fillna(0)
+            df['投球回'] = pd.to_numeric(df['投球回'], errors='coerce').fillna(0)
+            df['投球回'] = df['投球回'] + df['Unnamed: 2'] * (10 / 3)
+
+        # 除外する列
+        exclude_columns = ['年度', 'チーム', '選手', '選手名', '投　手', 'Unnamed: 2','Unnamed: 16'] 
+        analysis_items = [col for col in df.columns.tolist() if col not in exclude_columns]
+        
+        return jsonify(analysis_items)
+    except Exception as e:
+        print(f"項目取得エラー: {e}")
+        return jsonify([])
+
+if __name__ == '__main__':
+    app.run(debug=True)
