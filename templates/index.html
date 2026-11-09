@@ -43,7 +43,15 @@
         <strong style="font-size: 14px; color: #333;">② 打者の安打数の推移可視化</strong><br>
         <span style="font-size: 13px; color: #555;">1人の打者を対象に、年度ごとの安打数の推移を確認できます。</span>
       </div>
-      
+    
+  <div>
+    <div style="margin-top: 12px; margin-bottom: 12px;">
+      <strong style="font-size: 14px; color: #333;">③ チームが変わっても選手を追跡可能</strong><br>
+        <span style="font-size: 13px; color: #555;">移籍やトレードで所属チームが変わった場合でも、同一選手の成績推移を継続して確認できます。</span>
+    </div>
+      </div>
+  </div>
+
     </div> 
     </div>
   </div>
@@ -110,7 +118,7 @@
         </select>
       </p>
 
-      <p class="label-title">分析項目 （複数選択可）:
+      <p class="label-title">分析項目 （２つまで選択可）:
         <select id="analysisItems" name="items" multiple>
           {% for item in items %}
             <option value="{{ item }}">{{ item }}</option>
